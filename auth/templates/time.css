@@ -1,0 +1,18 @@
+#timeOptions {
+    margin-bottom:  10px;
+  }
+
+  #timeInput {
+    display: block;
+    height:  38px;
+    width: calc(100% -  22px);
+    border-radius:  5px;
+    padding:  5px;
+    margin-top:  7px;
+  }
+
+  #selectedTimeText {
+    font-weight: bold;
+    margin-bottom:  10px;
+    color: #ccc;
+  }

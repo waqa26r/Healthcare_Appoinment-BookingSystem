@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Appointment Booking</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        margin:  0;
+        padding:  0;
+        background-color: #f4f4f4;
+    }
+
+    #appointmentForm {
+        max-width:  600px;
+        margin:  50px auto;
+        padding:  20px;
+        background-color: #ffffff;
+        border:  1px solid #dddddd;
+        border-radius:  5px;
+    }
+
+    #appointmentForm label {
+        display: block;
+        margin-bottom:  5px;
+    }
+
+    #appointmentForm input, #appointmentForm select {
+        width:  100%;
+        padding:  10px;
+        margin-bottom:  20px;
+        border:  1px solid #dddddd;
+        border-radius:  5px;
+    }
+
+    #appointmentForm button {
+        width:  100%;
+        padding:  10px;
+        background-color: #007bff;
+        color: #ffffff;
+        border: none;
+        border-radius:  5px;
+        cursor: pointer;
+    }
+
+    #appointmentForm button:hover {
+        background-color: #0056b3;
+    }
+
+    #appointmentForm select[multiple] {
+        height:  100px;
+    }
+
+    /* Calendar styling (if included) */
+    #calendar {
+        margin-top:  20px;
+        background-color: #ffffff;
+        border:  1px solid #dddddd;
+        border-radius:  5px;
+        padding:  20px;
+    }
+</style>
+
+</head>
+<body>
+<!-- Appointment booking form -->
+<form id="appointmentForm">
+  <label for="name">Name:</label>
+  <input type="text" id="name" name="name" disabled><br>
+  <label for="phone">Phone:</label>
+  <input type="tel" id="phone" name="phone" disabled><br>
+  <label for="email">Email:</label>
+  <input type="email" id="email" name="email" disabled><br>
+  <label for="doctor">Select Doctor:</label>
+  <select id="doctor" name="doctor" onchange="fetchAvailability(this.value)" required>
+    <option value="">Select a Doctor</option>
+    <!-- Doctors will be dynamically populated here -->
+  </select><br>
+  <label for="date">Select Date(s):</label>
+<select id="date" name="date" onchange="fetchAvailability(this.value)" required>
+  <!-- Dates will be dynamically populated here -->
+</select><br>
+  <select id="time" name="time" onchange="fetchAvailability(this.value)" required>
+    <option value="">Select a Time</option>
+    <!-- Times will be dynamically populated here -->
+  </select><br>
+  <button type="button" id="submitButton">Book</button>
+</form>
+
+
+<!-- JavaScript code -->
+<script>
+    // Function to fetch doctors' data
+    function fetchDoctors() {
+        fetch('http://127.0.0.1:5000/doctor_speciality', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + localStorage.getItem('access_token')
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(doctors => {
+            const doctorDropdown = document.getElementById('doctor');
+            doctorDropdown.innerHTML = '';
+            const defaultOption = document.createElement('option');
+            defaultOption.textContent = 'Select a Doctor';
+            defaultOption.value = '';
+            doctorDropdown.appendChild(defaultOption);
+            doctors.sort((a, b) => a.name.localeCompare(b.name));
+            doctors.forEach(doctor => {
+                const option = document.createElement('option');
+                option.textContent = `${doctor.name} (${doctor.speciality})`;
+                option.value = doctor.id;
+                doctorDropdown.appendChild(option);
+            });
+        })
+        .catch(error => {
+            console.error('There has been a problem with fetching doctors:', error);
+        });
+    }
+    
+    function fetchDates(doctorId) {
+    fetch(`http://127.0.0.1:5000/fetch_dates?doctor_id=${doctorId}`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + localStorage.getItem('access_token')
+        }
+    })
+    .then(response => response.json())
+    .then(dates => {
+        // Populate the date dropdown with the fetched dates
+        const dateDropdown = document.getElementById('date');
+        dateDropdown.innerHTML = ''; // Clear existing options
+        dates.sort();
+        dates.forEach(dateObj => {
+            // Access the 'date' property of each object
+            const dateString = dateObj.date;
+
+            // Parse the date string and format it as yyyy-mm-dd
+            const parsedDate = new Date(dateString);
+            const year = parsedDate.getFullYear();
+            const month = String(parsedDate.getMonth() +  1).padStart(2, '0'); // Months are  0-indexed
+            const day = String(parsedDate.getDate()).padStart(2, '0');
+            const formattedDate = `${year}-${month}-${day}`;
+
+            const option = document.createElement('option');
+            option.textContent = formattedDate;
+            option.value = formattedDate;
+            dateDropdown.appendChild(option);
+        });
+    })
+    .catch(error => console.error('Error fetching dates:', error));
+}
+
+    
+    function fetchTimes(doctorId, selectedDate) {
+        fetch(`http://127.0.0.1:5000/fetch_times?doctor_id=${doctorId}&date=${selectedDate}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + localStorage.getItem('access_token')
+            }
+        })
+        .then(response => response.json())
+        .then(times => {
+            // Populate the time dropdown with the fetched times
+            const timeDropdown = document.getElementById('time');
+            timeDropdown.innerHTML = ''; // Clear existing options
+            times.sort((a, b) => a.start_time.localeCompare(b.start_time)); // Sort times by start time
+            times.forEach(time => {
+                const option = document.createElement('option');
+                option.textContent = `${time.start_time} - ${time.end_time}`;
+                option.value = `${time.start_time}-${time.end_time}`;
+                timeDropdown.appendChild(option);
+            });
+        })
+        .catch(error => console.error('Error fetching times:', error));
+    }
+    
+    const userInfo = localStorage.getItem('user_info');
+    if (userInfo) {
+        const userObj = JSON.parse(userInfo);
+        document.getElementById('name').value = userObj.name;
+        document.getElementById('phone').value = userObj.phone_no;
+        document.getElementById('email').value = userObj.email_id;
+    }
+    
+    document.addEventListener('DOMContentLoaded', function () {
+        fetchDoctors();
+    });
+    
+    // Add event listener to doctor dropdown to fetch dates when a doctor is selected
+    document.getElementById('doctor').addEventListener('change', function() {
+        const selectedDoctorId = this.value;
+        if (selectedDoctorId) {
+            fetchDates(selectedDoctorId);
+        }
+    });
+    
+    // Add event listener to date dropdown to fetch times when a date is selected
+    document.getElementById('date').addEventListener('change', function() {
+        const selectedDoctorId = document.getElementById('doctor').value;
+        const selectedDate = this.value;
+        if (selectedDoctorId && selectedDate) {
+            fetchTimes(selectedDoctorId, selectedDate);
+        }
+    });
+    // Function to validate the form
+function validateForm() {
+    const name = document.getElementById('name').value;
+    const phone = document.getElementById('phone').value;
+    const email = document.getElementById('email').value;
+    const doctor = document.getElementById('doctor').value;
+    const date = document.getElementById('date').value;
+    const time = document.getElementById('time').value;
+
+    if (!name || !phone || !email || !doctor || !date || !time) {
+        alert('Please fill in all the details before submitting.');
+        return false;
+    }
+    return true;
+}
+
+// Add an event listener to the submit button
+document.getElementById('submitButton').addEventListener('click', function() {
+    if (validateForm()) {
+        alert('Appointment booked successfully!');
+        // Here you can add any additional actions you want to perform after a successful booking
+    }
+});
+
+    </script>
+    </body>
+</html>

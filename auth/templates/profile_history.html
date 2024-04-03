@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>User Profile</title>
+<style>
+/* Add your custom styles here */
+body {
+ font-family: Arial, sans-serif;
+ background-color: #4070f4;
+ margin: 0;
+ padding: 0;
+ box-sizing: border-box;
+    background-color: #4070f4;
+    background-image: url('back.jpg');
+    background-repeat: no-repeat;
+    background-size: cover; /* Scales the background image to be as large as possible so that the background area is completely covered by the background image. */
+    background-position: center; /* Centers the background image */
+}
+ 
+.container {
+ max-width: 800px;
+ margin: 50px auto;
+ background-color: #fff;
+ padding: 20px;
+ border-radius: 8px;
+ box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+h2, h3 {
+ text-align: center;
+}
+table {
+ width: 100%;
+ border-collapse: collapse;
+ margin-top: 20px;
+}
+th, td {
+ border: 1px solid #ddd;
+ padding: 8px;
+ text-align: center;
+}
+th {
+ background-color: #f2f2f2;
+}
+.cancel-appointment-btn {
+    background-color: #ff4d4d; /* Red background */
+    color: white; /* White text */
+    border: none; /* No border */
+    padding: 5px 10px; /* Padding */
+    text-align: center; /* Center text */
+    text-decoration: none; /* No underline */
+    display: inline-block; /* Make it inline-block */
+    font-size: 14px; /* Font size */
+    margin: 4px 2px; /* Margin */
+    cursor: pointer; /* Cursor pointer */
+    border-radius: 4px; /* Rounded corners */
+    transition: background-color 0.3s ease; /* Smooth transition for hover effect */
+}
+.cancel-appointment-btn:hover {
+    background-color: #cc0000; /* Darker red on hover */
+}
+ 
+.spinner {
+    border: 16px solid #f3f3f3;
+    border-radius: 50%;
+    border-top: 16px solid #3498db;
+    width: 120px;
+    height: 120px;
+    animation: spin 2s linear infinite;
+}
+ 
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+ 
+</style>
+ 
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+ 
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.3/jquery.validate.min.js"></script>
+</head>
+<body>
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Profile</title>
+    <style>
+        .container {
+            width: 80%;
+            margin: auto;
+            margin-top: 35px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #f2f2f2;
+            color: black;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        h2, h3 {
+            text-align: center;
+        }
+        
+    </style>
+    </head>
+    <body>
+        <div id="ajax-loader" style="display: none;">
+            <div class="spinner"></div>
+        </div>
+    <div class="container">
+        <h2>User Profile</h2>
+        <div id="userDetails">
+            <!-- User details will be dynamically populated here -->
+        </div>
+        <h3>Active Appointments</h3>
+        <table id="currentAppointmentHistory">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Name</th>
+                    <th>Start Time</th>
+                    <th>End Time</th>
+                    <th>Status</th>
+                    <th>Action</th> <!-- New column for the cancel button -->
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Current appointment history rows will be dynamically populated here -->
+            </tbody>
+        </table>
+   
+        <h3>Completed Appointments</h3>
+        <table id="completedAppointmentHistory">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Name</th>
+                    <th>Start Time</th>
+                    <th>End Time</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Completed appointment history rows will be dynamically populated here -->
+            </tbody>
+        </table>
+    </div>
+   
+<script>
+   
+        document.addEventListener('DOMContentLoaded', function() {
+            const accessToken = localStorage.getItem('access_token');
+            if (!accessToken) {
+                window.location.href = 'login.html';
+                return;
+            }
+ 
+            // Show the AJAX loader
+            document.getElementById('ajax-loader').style.display = 'block';
+ 
+            // Fetch user_id from localStorage
+            var user_info = localStorage.getItem('user_info');
+            const userObj = JSON.parse(user_info);
+            let user_id = userObj.user_id;
+            let role_id = userObj.role_id;
+            if (user_id) {
+                document.getElementById('userDetails').innerHTML = `
+                    <p><strong>Name:</strong> ${userObj.name}</p>
+                    <p><strong>Email:</strong> ${userObj.email_id}</p>
+                    <p><strong>Phone:</strong> ${userObj.phone_no}</p>
+                `;
+            } else {
+                console.log('user_id not found in local storage.');
+            }
+ 
+            // Fetch appointment history from the backend API
+            fetch(`http://127.0.0.1:5000/appointment_history_details_patient?user_id=${user_id}&role_id=${role_id}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + localStorage.getItem('access_token')
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log(data);
+                const currentAppointmentHistoryTable = document.getElementById('currentAppointmentHistory').querySelector('tbody');
+                const completedAppointmentHistoryTable = document.getElementById('completedAppointmentHistory').querySelector('tbody');
+                data.appointment_history.forEach(appointment => {
+                    const date = new Date(appointment.appointment_date);
+                    const appoint_id = appointment.appt_id;
+                    const formattedDate = date.getDate().toString().padStart(2, '0') + '-' + (date.getMonth() + 1).toString().padStart(2, '0') + '-' + date.getFullYear();
+                    const isPending = appointment.status === 'pending';
+                    let cancelButton = '';
+                    if (isPending) {
+                        const button = document.createElement('button');
+                        button.textContent = 'Cancel Appointment';
+                        button.setAttribute('onclick', `cancelAppointment(${appoint_id})`);
+                        button.className = 'cancel-appointment-btn';
+                        cancelButton = button.outerHTML;
+                    }
+                    const row = `
+                        <tr>
+                            <td>${formattedDate}</td>
+                            <td>${appointment.name}</td>
+                            <td>${appointment.start_time}</td>
+                            <td>${appointment.end_time}</td>
+                            <td>${appointment.status}</td>
+                            ${isPending ? `<td>${cancelButton}</td>` : ''}
+                        </tr>
+                    `;
+                    if (appointment.status === 'completed' || appointment.status === 'cancelled') {
+                        completedAppointmentHistoryTable.innerHTML += row;
+                    } else if (appointment.status === 'pending') {
+                        currentAppointmentHistoryTable.innerHTML += row;
+                    }
+                });
+ 
+                // Hide the AJAX loader
+                document.getElementById('ajax-loader').style.display = 'none';
+            })
+            .catch(error => {
+                console.error('Error fetching appointment history:', error);
+                // Hide the AJAX loader
+                document.getElementById('ajax-loader').style.display = 'none';
+            });
+        });
+ 
+        function cancelAppointment(appoint_id) {
+            console.log('cancelAppointment called with ID:', appoint_id);
+ 
+            Swal.fire({
+                title: 'Are you sure?',
+                text: "You won't be able to revert this!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, cancel it!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    fetch(`http://127.0.0.1:5000/cancel_appointment?appointment_id=${appoint_id}`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + localStorage.getItem('access_token')
+                        }
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(result => {
+                        console.log('Result:', result);
+                        Swal.fire({
+                            title: 'Appointment canceled',
+                            icon: 'success',
+                            confirmButtonText: 'OK'
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                window.location.href = 'profile_history.html';
+                            }
+                        });
+                    })
+                    .catch(error => console.error('Error cancelling appointment:', error));
+                }
+            });
+        }
+    </script>
+    <script src="token_expiry.js"></script>
+</body>
+</html>

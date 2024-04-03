@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Appointment Booking</title>
+    <!-- Include FullCalendar library -->
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+    <style>
+        /* Add your CSS styles for the calendar here */
+        /* Form styling */
+        #appointmentForm {
+            width: 100%;
+            max-width: 400px; /* Adjust as needed */
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        /* Label styling */
+        #appointmentForm label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        /* Input and select styling */
+        #appointmentForm input, #appointmentForm select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        /* Button styling */
+        #appointmentForm button {
+            width: 100%;
+            padding: 10px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #appointmentForm button:hover {
+            background-color: #0056b3;
+        }
+        /* Calendar styling */
+        #calendar {
+            display: none; /* Hide the calendar initially */
+        }
+    </style>
+</head>
+<body>
+    <!-- Appointment booking form -->
+    <form id="appointmentForm">
+        <label for="name">Name:</label>
+        <input type="text" id="name" name="name" disabled><br>
+        <label for="phone">Phone:</label>
+        <input type="tel" id="phone" name="phone" disabled><br>
+        <label for="email">Email:</label>
+        <input type="email" id="email" name="email" disabled><br>
+        <label for="doctor">Select Doctor:</label>
+        <select id="doctor" name="doctor" required>
+            <option value="">Select a Doctor</option> <!-- Default option -->
+        </select><br>
+        <button type="button" id="showCalendarButton">Show Calendar</button>
+    </form>
+
+
+    <!-- Calendar display -->
+    <div id="calendar"></div>
+
+
+    <!-- JavaScript code -->
+    <script>
+        // Function to fetch doctors' data
+        function fetchDoctors() {
+fetch('http://127.0.0.1:5000/doctor_speciality', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + localStorage.getItem('access_token')
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(doctors => {
+                const doctorDropdown = document.getElementById('doctor');
+                doctorDropdown.innerHTML = ''; // Clear existing options
+                const defaultOption = document.createElement('option');
+                defaultOption.textContent = 'Select a Doctor';
+                defaultOption.value = '';
+                doctorDropdown.appendChild(defaultOption);
+                doctors.forEach(doctor => {
+                const option = document.createElement('option');
+                option.textContent = `${doctor.name} (${doctor.speciality})`;
+                option.value = doctor.id;
+                    doctorDropdown.appendChild(option);
+                });
+            })
+            .catch(error => {
+                console.error('There has been a problem with fetching doctors:', error);
+            });
+        }
+        const userInfo = localStorage.getItem('user_info');
+        if (userInfo) {
+            const userObj = JSON.parse(userInfo);
+            // Populate form fields with user information
+            document.getElementById('name').value = userObj.name;
+            document.getElementById('phone').value = userObj.phone_no;
+            document.getElementById('email').value = userObj.email_id;
+        }
+
+        // Function to fetch availability data and display on the calendar
+        function fetchAvailability(selectedDoctorId) {
+fetch(`http://127.0.0.1:5000/show_availability?doctor_id=${selectedDoctorId}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + localStorage.getItem('access_token')
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(availabilities => {
+                // Transform availabilities into FullCalendar event objects
+                const events = availabilities.map(availability => ({
+                id: availability.id,
+                    title: 'Available', // You can customize the title as needed
+start: new Date(availability.date + 'T' + availability.start_time),
+end: new Date(availability.date + 'T' + availability.end_time)
+                }));
+
+
+                // Add events to the calendar
+                calendar.addEventSource(events);
+            })
+            .catch(error => {
+                console.error('There has been a problem with fetching availability:', error);
+            });
+        }
+
+
+        // Show calendar button click event
+        const showCalendarButton = document.getElementById('showCalendarButton');
+        showCalendarButton.addEventListener('click', function() {
+            const selectedDoctorId = document.getElementById('doctor').value;
+            if (selectedDoctorId) {
+calendar.style.display = 'block';
+                // Fetch and display availability for the selected doctor
+                fetchAvailability(selectedDoctorId);
+            } else {
+                alert('Please select a doctor first.');
+            }
+        });
+
+
+        // Initialize FullCalendar
+        document.addEventListener('DOMContentLoaded', function() {
+            const calendarEl = document.getElementById('calendar');
+            const calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth', // Start with a month view
+                events: [] // We'll populate this later
+            });
+
+
+            // Fetch doctors and initialize the calendar
+            fetchDoctors();
+        });
+    </script>
+    <script src="token_expiry.js"></script>
+</body>
+</html>

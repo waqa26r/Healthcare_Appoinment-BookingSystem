@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Doctor Availability Form</title>
+  <!-- Include flatpickr CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <style>
+    /* Add your custom styles here */
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+      margin:  0;
+      padding:  0;
+      box-sizing: border-box;
+    }
+
+    .container {
+      max-width:  600px;
+      margin:  50px auto;
+      background-color: #fff;
+      padding:  20px;
+      border-radius:  8px;
+      box-shadow:  0  0  10px rgba(0,  0,  0,  0.1);
+    }
+
+    h2 {
+      text-align: center;
+    }
+
+    form {
+      display: grid;
+      gap:  15px;
+    }
+
+    label {
+      font-weight: bold;
+    }
+
+    input,
+    button,
+    select {
+      width:  100%;
+      padding:  10px;
+      border:  1px solid #ccc;
+      border-radius:  4px;
+      box-sizing: border-box;
+    }
+
+    button {
+      background-color: #4caf50;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    #availabilityDisplay {
+      margin-top:  20px;
+    }
+
+    #timeOptions {
+      margin-bottom:  10px;
+    }
+
+    #timeInput {
+      display: block;
+      height:  38px;
+      width: calc(100% -  22px);
+      border-radius:  5px;
+      padding:  5px;
+      margin-top:  7px;
+    }
+
+    #selectedTimeText {
+      font-weight: bold;
+      margin-bottom:  10px;
+      color: #ccc;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+    <h2>Doctor Registration Form</h2>
+    <form id="doctorForm"  action='http://127.0.0.1:5000/doctor_availability' methods='POST'>
+      <label for="doctorName">Doctor Name:</label>
+      <input type="text" id="doctorName" name="doctorName" required value="">
+
+      <label for="doctorEmail">Email:</label>
+      <input type="email" id="doctorEmail" name="doctorEmail" required>
+
+      <label for="doctorPhone">Phone:</label>
+      <input type="tel" id="doctorPhone" name="doctorPhone" pattern="[0-9]{10}" required>
+
+      <label for="specialty">Specialty:</label>
+      <div class="input-box">
+        <select id="specialty" name="speciality">
+            <option value="Unknown">Unknown</option>
+            <option value="General">General</option>
+            <option value="Orthopedic">Orthopedic</option>
+            <option value="Physio">Physio</option>
+            <option value="Surgeon">Surgeon</option>
+            <option value="MD. Dermatology">MD. Dermatology</option>
+        </select>
+      </div>
+
+      <label for="availability">Availability:</label>
+      <input type="text" id="availability" name="availability" placeholder="Select multiple date-time ranges" required>
+
+      <div id="timeOptions">
+        <label for="timeInput">Select a time:</label>
+        <div class="input-box">
+        <select id="timeInput" style="height:  39px; width:  600px;" name="time_slot" onchange="displaySelectedTime()" >
+          <option value="00:00-02:00">Midnight (12:00 AM -  2:00 AM)</option>
+          <option value="03:00-05:00">Early Morning (3:00 AM -  5:00 AM)</option>
+          <option value="06:00-08:00">Morning (6:00 AM -  8:00 AM)</option>
+          <option value="09:00-11:00">Morning (9:00 AM -  11:00 AM)</option>
+          <option value="12:00-14:00">Noon (12:00 PM -  2:00 PM)</option>
+          <option value="15:00-17:00">Afternoon (3:00 PM -  5:00 PM)</option>
+          <option value="18:00-20:00">Evening (6:00 PM -  8:00 PM)</option>
+          <option value="21:00-23:00">Night (9:00 PM -  11:00 PM)</option>
+        </select>
+        <p id="selectedTimeText"></p>
+      </div>
+      </div>
+
+      
+
+      <button type="button" onclick="submitForm()">Submit</button>
+    </form>
+
+    <div id="availabilityDisplay"></div>
+  </div>
+
+  <!-- Include flatpickr JavaScript -->
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+    // Fetch doctor profile data and populate form fields
+    fetch('http://127.0.0.1:5000/doctor_profile') // Relative URL to the current base URL
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('doctorName').value = data.Name;
+        document.getElementById('doctorEmail').value = data.Email_ID;
+        document.getElementById('doctorPhone').value = data.Phone_no;
+    })
+    .catch(error => console.error('Error:', error));
+
+      // Initialize flatpickr for the availability input with default time range
+      var availabilityInput = flatpickr("#availability", {
+        enableTime: true,
+        mode: "multiple",
+        dateFormat: "Y-m-d",
+        minDate: "today",
+        defaultDate: [{
+          from: "2022-02-20",
+          to: "2022-02-20"
+        }],
+      });
+
+      function displaySelectedTime() {
+        var select = document.getElementById("timeInput");
+        var checkboxes = document.querySelectorAll("input[type='checkbox']:checked");
+
+        var selectedTimes = Array.from(select.selectedOptions).map(option => option.value);
+        var selectedTimeText = document.getElementById("selectedTimeText");
+    
+        // Join selected times into a string
+        var selectedTimeString = selectedTimes.join(', ');
+    
+        // Update the paragraph with the selected times
+        selectedTimeText.textContent = selectedTimeString;
+      }
+
+      window.submitForm = function () {
+        // Fetch values from the form
+        var doctorName = document.getElementById('doctorName').value;
+        var doctorEmail = document.getElementById('doctorEmail').value;
+        var doctorPhone = document.getElementById('doctorPhone').value;
+
+        // Display selected availability
+        var displayDiv = document.getElementById('availabilityDisplay');
+        displayDiv.innerHTML = `
+          <h3>Selected Availability for ${doctorName}</h3>
+          <p>Email: ${doctorEmail}</p>
+          <p>Phone: ${doctorPhone}</p>
+          <p>Availability: ${availabilityInput.selectedDates.map(date => flatpickr.formatDate(date, "Y-m-d H:i")).join(' to ')}</p>
+        `;
+      };
+    });
+  </script>
+
+</body>
+
+</html>

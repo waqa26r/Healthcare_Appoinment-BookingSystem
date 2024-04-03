@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
+<title>Document</title>
+<style>
+    body {
+        background-color: #4070f4;
+    }
+        #doctorForm {
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 50px;
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+ 
+        /* Label styling */
+        #doctorForm label {
+            display: block;
+            margin-bottom: 5px;
+        }
+ 
+        /* Input and select styling */
+        #doctorForm input, #doctorForm select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 7px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+ 
+        /* Button styling */
+        #doctorForm button {
+            width: 100%;
+            padding: 10px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+ 
+        #doctorForm button:hover {
+            background-color: #0056b3;
+        }
+ 
+        #popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+ 
+        #popup p {
+            margin: 0;
+        }
+ 
+        #overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+
+
+
+        .error {
+        color: red;
+        
+    }
+
+
+</style>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.3/jquery.validate.min.js"></script>
+</head>
+<body>   
+<!-- <Script src="calender.js"></script> -->
+
+
+<div id="ajax-loader" style="display: none;">
+    <div class="spinner"></div>
+</div>
+<form id="doctorForm">
+    <center><h2>Availability Form</h2></center>
+<div class="input-box">
+<label for="name">Enter your name</label>
+<input type="text" id="name" name="name" placeholder="Enter your name" disabled>
+</div>
+<label for="date">Date:</label>
+<input type="date" id="date" name="date">
+<label for="startTime">Start Time:</label>
+<input type="time" id="startTime" name="startTime">
+<label for="endTime">End Time:</label>
+<input type="time" id="endTime" name="endTime">
+<label for="specialty">Specialty:</label>
+<select id="specialty" name="specialty">
+<option value="">Select Specialty</option>
+<option value="cardiology">Cardiology</option>
+<option value="neurology">Neurology</option>
+<option value="orthopedics">Orthopedics</option>
+<option value="dermatology">Dermatology</option>
+<!-- Add more options as needed -->
+</select>
+<button type="submit">Submit</button>
+</form>
+ 
+    <!-- Custom popup HTML -->
+<div id="overlay"></div>
+<div id="popup">
+<p>Data successfully submitted!</p>
+<button onclick="closePopup()">OK</button>
+</div>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+   const accessToken = localStorage.getItem('access_token');
+   if (!accessToken) {
+       // alert('Please log in to access this page.');
+       window.location.href = 'login.html';
+       return;
+   }
+   document.getElementById('ajax-loader').style.display = 'block';
+   function setMinDate() {
+       const today = new Date();
+       const year = today.getFullYear();
+       const month = String(today.getMonth() + 1).padStart(2, '0');
+       const day = String(today.getDate()).padStart(2, '0');
+       const formattedDate = `${year}-${month}-${day}`;
+       const dateInput = document.getElementById('date');
+       dateInput.min = formattedDate;
+   }
+   window.onload = setMinDate();
+   // Function to reset start time to 00:00 when the date changes
+   document.getElementById('date').addEventListener('change', function() {
+       const startTimeInput = document.getElementById('startTime');
+       startTimeInput.value = '00:00'; // Reset start time to 00:00
+       // Optionally, reset end time as well
+       const endTimeInput = document.getElementById('endTime');
+       endTimeInput.value = '00:00'; // Reset end time to 00:00
+   });
+   function setMinEndTime(startTime) {
+       const endTimeInput = document.getElementById('endTime');
+       const startTimeParts = startTime.split(':');
+       let endTimeValue;
+       // Calculate the end time based on a 10-minute duration
+       const startHour = parseInt(startTimeParts[0]);
+       const startMinute = parseInt(startTimeParts[1]);
+       let endHour = startHour;
+       let endMinute = startMinute + 10; // Add 10 minutes to the start time
+       // Adjust the hour if the minutes exceed 60
+       if (endMinute >= 60) {
+           endHour += 1;
+           endMinute -= 60;
+       }
+       // Format the end time as a string
+       endTimeValue = endHour.toString().padStart(2, '0') + ':' + endMinute.toString().padStart(2, '0');
+       endTimeInput.min = endTimeValue;
+   }
+   // Event listener for the start time input to update the end time's minimum value
+   document.getElementById('startTime').addEventListener('change', function(e) {
+       const startTime = e.target.value;
+       setMinEndTime(startTime);
+   });
+   const user_info = localStorage.getItem('user_info');
+   const userObj = JSON.parse(user_info);
+   const name = userObj ? userObj.name : null; // Check if userObj exists
+   if (name) {
+       document.getElementById('name').value = name;
+   } else {
+       console.log('Name not found in local storage.');
+   }
+// jQuery Validation setup
+// jQuery Validation setup
+$('#doctorForm').validate({
+    rules: {
+        date: {
+            required: true
+        },
+        startTime: {
+            required: true
+        },
+        endTime: {
+            required: true
+        },
+        specialty: {
+            required: true
+        }
+    },
+    messages: {
+        date: "Please select a date.",
+        startTime: "Please select a start time.",
+        endTime: "Please select a time that is at least 10 minutes after the start time.",
+        specialty: "Please select a specialty."
+    },
+    submitHandler: function(form) {
+        // Check if end time is less than start time
+        const startTime = $('#startTime').val();
+        const endTime = $('#endTime').val();
+        const startTimeParts = startTime.split(':');
+        const endTimeParts = endTime.split(':');
+        const startHour = parseInt(startTimeParts[0]);
+        const startMinute = parseInt(startTimeParts[1]);
+        const endHour = parseInt(endTimeParts[0]);
+        const endMinute = parseInt(endTimeParts[1]);
+
+        if (endHour < startHour || (endHour === startHour && endMinute < startMinute)) {
+            // End time is less than start time, show custom error message
+            Swal.fire({
+                title: 'Error!',
+                text: 'End time must be at least 10 minutes after the start time.',
+                icon: 'error',
+                confirmButtonText: 'OK'
+            });
+            return false; // Prevent form submission
+        }
+
+        // Your existing code for handling form submission
+        // For example, sending the data to the server
+        const data = {
+            // Assuming you're collecting data from the form
+            name: $('#name').val(),
+            date: $('#date').val(),
+            startTime: $('#startTime').val(),
+            endTime: $('#endTime').val(),
+            specialty: $('#specialty').val()
+        };
+
+        document.getElementById('ajax-loader').style.display = 'block';
+        fetch('http://127.0.0.1:5000/add_availability', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + localStorage.getItem('access_token') // Assuming you're using JWT for authentication
+            },
+            body: JSON.stringify(data),
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Success:', data);
+            // Call myFunction to show SweetAlert2 confirmation dialog
+            myFunction();
+            document.getElementById('ajax-loader').style.display = 'none';
+        })
+        .catch((error) => {
+            console.error('Error:', error);
+            // Optionally, show an error message
+            document.getElementById('ajax-loader').style.display = 'none';
+        });
+
+        return false; // Prevent form submission
+    }
+});       // Send the data to the server
+       fetch('http://127.0.0.1:5000/add_availability', {
+               method: 'POST',
+               headers: {
+                   'Content-Type': 'application/json',
+                   'Authorization': 'Bearer ' + localStorage.getItem('access_token') // Assuming you're using JWT for authentication
+               },
+               body: JSON.stringify(data),
+           })
+           .then(response => response.json())
+           .then(data => {
+               console.log('Success:', data);
+               // Call myFunction to show SweetAlert2 confirmation dialog
+               myFunction();
+               document.getElementById('ajax-loader').style.display = 'none';
+           })
+           .catch((error) => {
+               console.error('Error:', error);
+               // Optionally, show an error message
+               document.getElementById('ajax-loader').style.display = 'none';
+           });
+   
+   function myFunction() {
+       Swal.fire({
+           title: 'Availability Confirmed!',
+           icon: 'success',
+           confirmButtonText: 'OK'
+       }).then((result) => {
+           if (result.isConfirmed) {
+               window.location.href = 'index.html';
+           }
+       });
+   }
+
+});
+
+</script>
+<script src="token_expiry.js"></script>
+ 
+</body>
+</html>

@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login Form</title>
+    <link rel="stylesheet" href="static/Login.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+    <div class="wrapper">
+        <center><h2>LOGIN FORM</h2></center>
+        <form id="loginForm" method="POST">
+            <div class="input-box">
+                <input type="text" id="emailInput" name="email" placeholder="Enter your Email" required>
+            </div>
+            <div class="input-box">
+                <input type="password" id="passwordInput" name="pwd" placeholder="Enter your Password" required>
+            </div>
+            <div class="input-box button">
+                <input type="submit" value="Login Now">
+            </div>
+            <div class="text">
+                <h3>Don't have an account? <a href="Registration.html">Register now</a></h3>
+            </div>
+        </form>
+    </div>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.3/jquery.validate.min.js"></script>
+    <script src="static/Login.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        function checkAccessTokenAndRedirect() {
+            if (localStorage.getItem('access_token')) {
+                const userConfirmation = window.confirm("You are already logged in. Do you want to go to the home page?");
+                if (userConfirmation) {
+                    window.location.href = 'index.html';
+                } else {
+                    localStorage.clear();
+                }
+                return;
+            }
+        }
+        checkAccessTokenAndRedirect();
+ 
+        $.validator.addMethod("emailIsValid", function(value, element) {
+            
+
+           var re = /^[a-zA-Z][-a-zA-Z0-9._%+-]*@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+            return this.optional(element) || re.test(value);
+        }, "Please enter a valid email address.");
+ 
+        $.validator.addMethod("passwordIsValid", function(value, element) {
+    var re = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    return this.optional(element) || re.test(value);
+}, "Please enter a valid password. It should contain at least one uppercase letter, one lowercase letter, one digit, and one special character.");
+ 
+        $('#loginForm').validate({
+            rules: {
+                email: {
+                    required: true,
+                    emailIsValid: true
+                },
+                pwd: {
+                    required: true,
+                    passwordIsValid: true
+                }
+            },
+            messages: {
+                email: {
+                    required: "Please enter your email address."
+                },
+                pwd: {
+                    required: "Please enter your password."
+                }
+            },
+            submitHandler: function(form) {
+                event.preventDefault(); // Prevent the default form submission
+ 
+                const formData = new FormData(form);
+                const jsonData = {};
+                for (const [key, value] of formData.entries()) {
+                    jsonData[key] = value;
+                }
+ 
+                const jsonString = JSON.stringify(jsonData);
+ 
+                fetch('http://127.0.0.1:5000/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: jsonString
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Login failed. Invalid credentials.');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.access_token) {
+                        localStorage.setItem('access_token', data.access_token);
+                        localStorage.setItem('user_info', JSON.stringify(data.user_info));
+                        Swal.fire({
+                            title: 'Login Successful',
+                            icon: 'success',
+                            confirmButtonText: 'OK'
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                window.location.href = 'index.html';
+                            }
+                        });
+                    } else {
+                        console.error('Login failed. Invalid credentials.');
+                    }
+                })
+                .catch(error => {
+                    console.error('There has been a problem with your fetch operation:', error);
+                    Swal.fire({
+                        title: 'Login Failed',
+                        text: error.message,
+                        icon: 'error',
+                        confirmButtonText: 'OK'
+                    });
+                });
+            }
+        });
+    });
+    </script>
+</body>
+</html>

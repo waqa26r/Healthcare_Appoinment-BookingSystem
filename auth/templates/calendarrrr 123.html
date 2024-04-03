@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Appointment Booking</title>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+    <style>
+        /* Add your CSS styles for the calendar here */
+        /* Form styling */
+        body{
+            background-color: #4070f4;
+        }
+
+
+        #appointmentForm {
+            width:  100%;
+            max-width:  400px; /* Adjust as needed */
+            margin:  0 auto;
+            padding:  20px;
+            background-color: #f8f8f8;
+            border:  1px solid #ddd;
+            border-radius:  5px;
+            margin-bottom: 20px;
+        }
+        #calendar {
+            width: 80%; /* Adjust the width as needed */
+            margin: 0 auto; /* Center the calendar */
+            background-color: #f0f0f0; /* Light gray background */
+            border: 1px solid #ccc; /* Light border */
+            padding: 20px; /* Add some padding */
+            box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2); /* Optional: Add a shadow for depth */
+            margin-top: 20px;
+        }
+        /* Label styling */
+        #appointmentForm label {
+            display: block;
+            margin-bottom:  5px;
+        }
+        /* Input and select styling */
+        #appointmentForm input, #appointmentForm select {
+            width:  100%;
+            padding:  10px;
+            margin-bottom:  20px;
+            border:  1px solid #ddd;
+            border-radius:  5px;
+        }
+        /* Button styling */
+        #appointmentForm button {
+            width:  100%;
+            padding:  10px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius:  5px;
+            cursor: pointer;
+        }
+        #appointmentForm button:hover {
+            background-color: #0056b3;
+        }
+        /* Calendar styling */
+        #calendar {
+            display: none; /* Hide the calendar initially */
+        }
+ 
+       
+        .hidden {
+    display: none;
+}
+ 
+#submitAppointment {
+    margin-top: 20px; /* Adjust the gap as needed */
+    padding: 10px 20px;
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+ 
+#submitAppointment:hover {
+    background-color: #0056b3;
+}
+ 
+/* Style for the "Show Calendar" button */
+#showCalendarButton {
+    width: 100%;
+    padding: 10px;
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    margin-bottom: 20px; /* Add some space below the button */
+}
+ 
+#showCalendarButton:hover {
+    background-color: #0056b3;
+}
+ 
+#selectedDateInput, #time {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 20px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+</head>
+<body>
+    <!-- Appointment booking form -->
+    <form id="appointmentForm">
+        <center><h2>Book Your Appointment</h2></center>
+        <label for="name">Name:</label>
+        <input type="text" id="name" name="name" disabled><br>
+        <label for="phone">Phone:</label>
+        <input type="tel" id="phone" name="phone" disabled><br>
+        <label for="email">Email:</label>
+        <input type="email" id="email" name="email" disabled><br>
+        <label for="doctor">Select Doctor:</label>
+        <select id="doctor" name="doctor" required>
+            <option value="">Select a Doctor</option>
+            <!-- Populate with options from backend -->
+        </select><br>
+        <div id="dateTimeSelection">
+            <label for="selectedDateInput">Selected Date:</label>
+            <input type="text" id="selectedDateInput" name="selectedDateInput" readonly class="hidden">
+            <label for="time">Selected Time:</label>
+            <select id="time" name="time" required class="hidden">
+                <option value="">Select a Time</option>
+            </select> <br>
+        </div>
+        <button type="button" id="showCalendarButton">Show Calendar</button>
+        <div>
+            <button type="submit" id="submitAppointment" class="hidden">Submit Appointment</button>
+        </div>
+    </form> 
+    <!-- Calendar display -->
+    <div id="calendar"></div>
+ 
+    <script>
+        function updateFormWithUserInfo() {
+            const userInfo = localStorage.getItem('user_info');
+            if (userInfo) {
+                const userObj = JSON.parse(userInfo);
+                document.getElementById('name').value = userObj.name;
+                document.getElementById('phone').value = userObj.phone_no;
+                document.getElementById('email').value = userObj.email_id;
+            }
+        }
+ 
+        document.getElementById('showCalendarButton').addEventListener('click', function () {
+            const selectedDoctorId = document.getElementById('doctor').value;
+            if (selectedDoctorId) {
+                document.getElementById('calendar').style.display = 'block';
+                fetchAvailability(selectedDoctorId);
+            } else {
+                alert('Please select a doctor first.');
+            }
+        });
+ 
+        function convertToISO8601(dateString, timeString) {
+            const date = new Date(dateString);
+            const [hours, minutes] = timeString.split(':');
+            date.setHours(hours, minutes);
+            return date.toISOString();
+        }
+ 
+        function fetchAvailability(selectedDoctorId) {
+            fetch(`http://127.0.0.1:5000/show_availability?doctor_id=${selectedDoctorId}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + localStorage.getItem('access_token')
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(availabilityData => {
+                const events = availabilityData.map(slot => ({
+                    title: 'Available',
+                    start: convertToISO8601(slot.date, slot.start_time),
+                    end: convertToISO8601(slot.date, slot.end_time),
+                    color: 'green'
+                }));
+ 
+                var calendarEl = document.getElementById('calendar');
+                var calendar = new FullCalendar.Calendar(calendarEl, {
+                    initialView: 'timeGridWeek',
+                    events: events,
+                    eventColor: 'green',
+                    eventClick: function(info) {
+                        const date = info.event.start.toISOString().split('T')[0];
+    const time = info.event.start.toISOString().split('T')[1].substring(0, 5);
+    localStorage.setItem('selectedDate', date);
+    localStorage.setItem('selectedTime', time);
+ 
+    document.getElementById('selectedDateInput').value = date;
+    document.getElementById('time').value = time;
+ 
+    // Show the selected date and time fields
+    document.getElementById('selectedDateInput').classList.remove('hidden');
+    document.getElementById('time').classList.remove('hidden');
+ 
+    // Show the submit button
+    document.getElementById('submitAppointment').classList.remove('hidden');
+ 
+    const doctorId = document.getElementById('doctor').value;
+    fetchTimes(doctorId, date);
+                }
+                });
+ 
+                calendar.render();
+                calendarEl.style.display = 'block';
+            })
+            .catch(error => {
+                console.error('Fetch error:', error);
+            });
+        }
+ 
+        function fetchDates(doctorId) {
+            fetch(`http://127.0.0.1:5000/fetch_dates?doctor_id=${doctorId}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + localStorage.getItem('access_token')
+                }
+            })
+            .then(response => response.json())
+            .then(dates => {
+                const dateDropdown = document.getElementById('date');
+                dateDropdown.innerHTML = '';
+                dates.sort();
+                dates.forEach(dateObj => {
+                    const dateString = dateObj.date;
+                    const parsedDate = new Date(dateString);
+                    const year = parsedDate.getFullYear();
+                    const month = String(parsedDate.getMonth() +  1).padStart(2, '0');
+                    const day = String(parsedDate.getDate()).padStart(2, '0');
+                    const formattedDate = `${year}-${month}-${day}`;
+ 
+                    const option = document.createElement('option');
+                    option.textContent = formattedDate;
+                    option.value = formattedDate;
+                    dateDropdown.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error fetching dates:', error));
+        }
+ 
+ 
+   
+        function fetchTimes(doctorId, selectedDate) {
+            fetch(`http://127.0.0.1:5000/fetch_times?doctor_id=${doctorId}&date=${selectedDate}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + localStorage.getItem('access_token')
+                }
+            })
+            .then(response => response.json())
+            .then(times => {
+                const timeDropdown = document.getElementById('time');
+                timeDropdown.innerHTML = '';
+                times.sort((a, b) => a.start_time.localeCompare(b.start_time));
+                times.forEach(time => {
+                    const option = document.createElement('option');
+                    option.textContent = `${time.start_time} - ${time.end_time}`;
+                    option.value = `${time.start_time}-${time.end_time}`;
+                    timeDropdown.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error fetching times:', error));
+        }
+ 
+   
+ 
+        function fetchDoctors() {
+            return fetch('http://127.0.0.1:5000/doctor_speciality', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + localStorage.getItem('access_token')
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(doctors => {
+                const doctorDropdown = document.getElementById('doctor');
+                doctorDropdown.innerHTML = '';
+                const defaultOption = document.createElement('option');
+                defaultOption.textContent = 'Select a Doctor';
+                defaultOption.value = '';
+                doctorDropdown.appendChild(defaultOption);
+                doctors.forEach(doctor => {
+                    const option = document.createElement('option');
+                    option.textContent = `${doctor.name} (${doctor.speciality})`;
+                    option.value = doctor.id;
+                    doctorDropdown.appendChild(option);
+                });
+            });
+ 
+           
+        }
+       
+ 
+        function updateFormWithSelectedDateTime() {
+    const selectedDate = localStorage.getItem('selectedDate');
+    const selectedTime = localStorage.getItem('selectedTime');
+ 
+    if (selectedDate) {
+        document.getElementById('selectedDateInput').value = selectedDate;
+    }
+    if (selectedTime) {
+        document.getElementById('time').value = selectedTime;
+    }
+}
+ 
+// Ensure this function is called when the page loads or when the form is displayed
+document.addEventListener('DOMContentLoaded', function() {
+    updateFormWithUserInfo();
+    fetchDoctors();
+    updateFormWithSelectedDateTime(); // This ensures the form is updated with the selected date and time
+    const selectedDate = localStorage.getItem('selectedDate');
+    if (selectedDate) {
+        const doctorId = document.getElementById('doctor').value;
+        if (doctorId) {
+            fetchDates(doctorId);
+            fetchTimes(doctorId, selectedDate);
+        }
+    }
+});
+ 
+ 
+document.getElementById('appointmentForm').addEventListener('submit', function(event) {
+    event.preventDefault();
+    const startTime = document.getElementById('time').value.split('-')[0];
+    const endTime = document.getElementById('time').value.split('-')[1];
+    const doctorID = document.getElementById('doctor').value;
+    const selectedDate = document.getElementById('selectedDateInput').value;
+    submitAppointment(doctorID,selectedDate, startTime, endTime);
+});
+ 
+function submitAppointment(doctorID, selectedDate, startTime, endTime) {
+    const formData = new FormData(document.getElementById('appointmentForm'));
+    const data = Object.fromEntries(formData.entries());
+    data.doctor_id = doctorID;
+    data.date = selectedDate;
+    data.start_time = startTime;
+    data.end_time = endTime;
+
+    fetch('http://127.0.0.1:5000/appointment_history', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + localStorage.getItem('access_token')
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(result => {
+        // Use SweetAlert2 for confirmation dialog
+        Swal.fire({
+            title: 'Appointment Confirmed',
+            icon: 'success',
+            confirmButtonText: 'OK'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.location.href = 'index.html'; // Redirect to index.html
+            }
+        });
+    })
+    .catch(error => {
+        console.error('Error submitting appointment:', error);
+    });
+}
+
+</script>
+<script src="token_expiry.js"></script>
+ 
+</body>
+</html>
+ 
